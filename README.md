@@ -2,10 +2,10 @@
 
 **Nebulah Dash** is a new Xbox 360 homebrew dashboard project intended to become a modern replacement shell for modified Xbox 360 consoles while preserving the workflows the community relies on.
 
-> Current version: **0.1.0-alpha.1**  
-> Project revision: **1**  
-> Codename: **Foundation**  
-> Status: **RGH/JTAG hardware-test XEX builds successfully; hardware validation pending**
+> Current version: **0.2.0-alpha.11**
+> Project revision: **12**
+> Codename: **DatabaseVFS**  
+> Status: **retail-kernel launch/return validated; Xbox-side storage discovery under hardware validation**
 
 ## Project goals
 
@@ -25,9 +25,9 @@ Nebulah Dash is being designed to eventually provide:
 
 The project is starting with the console dashboard first. Network services, package installation, configuration writes, and plugin loading will be added only after the base render/input/launch architecture is stable.
 
-## What revision 1 contains
+## What revision 12 contains
 
-Revision 1 is deliberately small enough to validate on real hardware.
+Revision 10 is the first real milestone-5 persistence build. It adds an Xbox-native SQLite VFS and writes the hardware scanner inventory into a real test database, then closes, reopens, hashes, and integrity-checks that database before reporting PASS/FAIL.
 
 The current 360Dash source includes:
 
@@ -44,6 +44,127 @@ The current 360Dash source includes:
 - Clean separation between application state, platform code, and UI rendering
 
 The buttons currently exercise navigation only. They intentionally do not modify console configuration in this revision.
+
+## Revision 12 VFS validation
+
+Revision 12 keeps normal library persistence disabled. It enforces one native
+owner per database file, handles native EOF as a zero-filled SQLite short read,
+and propagates access/delete/close failures. A host file shim exercises the real
+Xbox VFS and repository with pinned SQLite: schema and scanner-record persistence,
+close/reopen, hashes, integrity, rollback, user-state preservation and corruption.
+These host checks do not establish Xbox ABI/FATX correctness; a new console report
+is required. Preserve the failed revision-10 DB and use a separate empty testing
+folder for the fresh-create run. See `docs/HANDOFF.md` and `AGENTS.md`.
+
+## Revision 11 DatabaseVFS
+
+Revision 11 is the first hardware-fix pass for the Xbox-native SQLite layer. The initial Trinity database run reached SQLite but failed at `PRAGMA user_version` with `file is not a database`. SQLite is now explicitly compiled with `SQLITE_BYTEORDER=4321` for the Xbox 360's big-endian PowerPC CPU instead of relying on cross-compiler autodetection.
+
+The diagnostic also records immediate open/schema status and raw database header probes so future VFS failures can be separated into file-I/O, SQLite-format, schema, record-hash, and integrity stages.
+
+## Revision 10 SQLite hardware database test
+
+Revision 10 uses the pinned official SQLite 3.53.4 amalgamation with Nebulah's own Xbox 360 VFS. The diagnostic creates `GAME:\NebulahLibraryTest.db`, writes the current scanner records transactionally, closes it, reopens it, verifies the compiled migration SHA-256 against the stored schema migration, recomputes application/location hashes and executable IDs, and runs SQLite `integrity_check` and `foreign_key_check`.
+
+This database is deliberately a hardware-validation database. Normal persistent library mode remains disabled until the VFS and verification pass on console.
+
+## Milestone 5 library database foundation
+
+The persistent library foundation is now under construction. Schema v1 separates
+logical applications, physical locations, individual XEX files, scan history,
+storage identity, and user state.
+
+Nebulah now includes a portable SHA-256 core and deterministic application,
+location, executable, application-record, and location-record hash contracts.
+The exact schema migration is also hashed and checked against a compiled
+baseline before it becomes eligible for on-console persistence.
+
+The Revision 9 Trinity acceptance inventory is preserved as a sanitized,
+hash-verified regression fixture so later database changes can be checked
+against known real-hardware scanner behavior.
+
+See [Library Database Foundation](docs/LIBRARY_DATABASE.md).
+
+## Revision 9 scanner inventory
+
+Revision 9 turns the per-XEX scanner output into temporary application-level records. Games with alternate modes remain one game, dashboard shell modules remain one dashboard, DLL-style components remain components, trainers/loaders remain helpers, and invalid extension-only XEX hits remain non-executable.
+
+The diagnostic emits `appaggregate=` records and a `[ScannerInventorySummary]` section intended as the overall milestone-4 game/homebrew scanner acceptance test.
+
+See [Application Aggregation and XEX Family Fingerprints](docs/APPLICATION_AGGREGATION.md).
+
+## Revision 8 identity fusion
+
+Revision 8 replaces the diagnostic's previous max-score identity hint with the reusable `XexIdentityFusion` engine. It tracks category scores, context-gates ambiguous signatures such as `FFFE07D1`, rejects extension-only non-XEX2 files as identity evidence, marks DLL/module XEX files as components, retains runner-up categories, and reports ambiguity instead of hiding close calls.
+
+See [XEX Identity Fusion](docs/XEX_IDENTITY_FUSION.md).
+
+## Revision 7 quiet metadata diagnostics
+
+Revision 7 removes ScanView progress toasts. Only the final completion/error notification remains. The complete scan order, file list, XEX metadata, and classification evidence continue to be written to `GAME:\NebulahDebug.txt`.
+
+## Revision 6 scan activity notifications
+
+Revision 6 adds visible scan telemetry through the Xbox notification UI. Nebulah announces each eligible candidate root and then shows the current application/XEX at a bounded interval (first XEX and every fifth XEX) so the notification queue is not flooded.
+
+The complete per-file sequence remains recorded in `GAME:\NebulahDebug.txt`.
+
+## Revision 5 XEX metadata
+
+Revision 5 adds a platform-neutral XEX2 header parser plus the Xbox file reader used by the hardware diagnostic. It extracts execution identity, image/module fields, format information, original PE name, and security-header evidence without claiming cryptographic retail verification.
+
+The diagnostic also ships a small set of non-launchable XEX2 metadata fixtures for deterministic hardware parser checks.
+
+See [XEX Identity Research](docs/XEX_CLASSIFICATION_RESEARCH.md).
+
+## Revision 4 application enumeration
+
+Revision 4 adds a one-level `ApplicationEnumerator` that operates only on temporary candidate roots classified as game libraries, homebrew roots, emulator roots, or generic application roots.
+
+It records direct XEX files and immediate child applications, preferring `default.xex`, then `default_mp.xex`, then another discovered XEX as the temporary primary entrypoint. It never recursively crawls the full title tree and does not persist applications.
+
+See [One-Level Application Enumeration](docs/APPLICATION_ENUMERATION.md).
+
+## Revision 3 candidate diagnostics
+
+The Revision 3 diagnostic XEX runs the same candidate-classification code intended for Nebulah Core. The resulting `NebulahDebug.txt` includes temporary suggestions with:
+
+- path;
+- candidate kind;
+- 0-100 score;
+- confidence band;
+- proposed role;
+- optional entrypoint;
+- evidence flags;
+- explicit temporary/confirmation-required state.
+
+`default_mp.xex` is logged as strong game evidence, while plain `default.xex` remains intentionally ambiguous without supporting context.
+
+Sensitive-looking filenames are redacted from debug directory listings.
+
+## Revision 2 diagnostic report
+
+The Revision 2 hardware build writes a diagnostic report beside the launched XEX:
+
+```text
+GAME:\NebulahDebug.txt
+```
+
+Because `GAME:` resolves to the directory containing the currently launched title, this does **not** assume Nebulah lives on HDD, USB0, or any other specific storage device.
+
+The report records only development-relevant information:
+
+- Nebulah build/version;
+- Xbox system version and current title ID;
+- language, region, AV pack and video-mode information;
+- current launch-directory listing;
+- physical HDD/USB/MU/optical probe results;
+- Nebulah-owned alias mount status;
+- disk-space data where available;
+- shallow root directory listings for content-capable volumes;
+- existence checks for likely dashboard/game/homebrew folders.
+
+The diagnostic intentionally does **not** collect CPU keys, keyvault contents, console IDs, serial numbers, profiles, XUIDs, credentials, or account data.
 
 ## Current controls
 
@@ -93,21 +214,98 @@ Nebulah-Dash/
 └── README.md
 ```
 
-## RGH/JTAG hardware-test build
+## Hardware-test build status
 
-Revision 1 now includes a second, fully open build backend under `platform/libxenon/`. It uses Free60 libxenon for the Xenon runtime and Team Resurgent's open ELF-to-XEX packer. This backend exists specifically so early hardware boot/input testing can happen without redistributing Microsoft XDK files.
+### Known-bad: libxenon Aurora-launch build
 
-The GitHub Actions workflow `.github/workflows/build-libxenon-xex.yml` currently produces a validly debug-signed, unencrypted `360Dash.xex` intended for manual launch on RGH/JTAG-class homebrew systems.
+The first open-toolchain hardware build used Free60 libxenon and successfully compiled/packed into a valid XEX. Real-hardware testing showed that launching it from Aurora immediately freezes the console.
 
-Latest verified CI build:
+That result is now treated as a runtime-architecture failure, not a usable dashboard build. The libxenon program calls bare-metal-style Xenos and USB initialization after the Xbox 360 OS has already launched the title. **Do not use the revision-1 libxenon artifact for Aurora or DashLaunch testing.**
+
+Known-bad artifact:
 
 ```text
 Commit: 844a205204eac85776ff86f01599f59cd1152fd3
 Size:   6,819,840 bytes
 SHA256: d28a5af0b1ed83b6c736a3942bcb0031f8f72fa09714c075f4ddfc314ea6a4a2
+Result: Immediate console freeze when launched from Aurora
 ```
 
-This libxenon build is a hardware smoke-test backend, not yet the final XUI dashboard renderer. It preserves the same tabs, tile labels, and controller navigation so boot/video/input can be validated before more logic is added.
+The source remains in `platform/libxenon/` as an experimental/reference backend only.
+
+### Current test: retail-kernel XAM probe
+
+The current hardware probe uses the normal Xbox 360 title execution model. It performs no direct GPU, framebuffer, USB, ATA, or storage-controller initialization.
+
+Its complete runtime behavior is intentionally tiny:
+
+1. enter at the XEX title entry point;
+2. call the normal `xam.xex` export `XNotifyQueueUI`;
+3. display `Nebulah Dash retail-kernel test reached entry.`;
+4. call `XamLoaderTerminateTitle` to exit cleanly.
+
+Latest CI build:
+
+```text
+Commit: d0956c160b8f0d66a66089b7c77373b4e9f57860
+Workflow run: 36148964276
+Output: 360Dash-kernel-smoke.xex
+Size:   135,168 bytes
+SHA256: 221df229d09d4c004544a08404170a8dbb3c943464844fac6025e762775922d6
+Image base: 0x82000000
+Entry point: 0x82002000
+Pages: 1 CODE + 1 RWDATA
+Signature check: valid
+Hardware result: pending
+```
+
+A successful test is **notification appears, followed by a clean return/termination without freezing**. Only after that succeeds will dashboard rendering be reintroduced.
+
+## Storage and path configuration
+
+Nebulah will not assume that every console uses the same folder structure.
+
+The first reference console has Aurora and games on the internal HDD while Nebulah, additional games, and tools are also present on `USB0:`. That is exactly the kind of mixed layout the project needs to support.
+
+The planned model is:
+
+```text
+detect volumes
+    ↓
+suggest likely folders/apps
+    ↓
+user confirms logical roles
+    ↓
+validate paths
+    ↓
+store Nebulah configuration
+```
+
+Return-to-dashboard routing is intentionally separate from library paths. Normal exit uses the Xbox/DashLaunch dashboard route; an explicit Aurora or other dashboard executable can be stored only as a verified fallback.
+
+See:
+
+- [Storage Paths, Discovery, and Return Routing](docs/PATHS_AND_DISCOVERY.md)
+- [First-Run Setup Wizard](docs/FIRST_RUN_SETUP.md)
+- [Example path configuration](config/nebulah.paths.example.ini)
+
+## Xbox-side storage discovery
+
+The Xbox implementation now has a dedicated storage discovery layer.
+
+It does not trust Aurora/XBDM/plugin drive aliases. Instead, Nebulah creates temporary project-owned aliases such as `NebHdd:` and `NebUsb0:` for physical Xbox device paths, verifies that the root is accessible, and reports only devices that actually exist.
+
+Initial probes cover:
+
+- internal HDD data partition;
+- up to three USB mass-storage devices;
+- memory-unit slots;
+- known onboard-memory variants;
+- optical media.
+
+Only internal HDD and detected USB mass storage are recommended for automatic content-path suggestions by default. Removable paths are revalidated on every boot.
+
+See [Xbox-Side Storage Discovery](docs/XBOX_STORAGE_DISCOVERY.md).
 
 ## Build requirements
 
@@ -182,9 +380,11 @@ A dashboard replacement should always retain a safe alternate boot path while un
 | XUI initialization | Implemented |
 | Controller navigation | Implemented |
 | Dashboard shell | Implemented |
-| Hardware boot | **Pending validation** |
-| RGH test | Pending |
-| JTAG test | Pending |
+| Hardware boot | Retail-kernel probe pending |
+| RGH test | libxenon path failed; retail-kernel probe pending |
+| JTAG test | Retail-kernel probe pending |
+| libxenon Aurora launch | **Failed: immediate freeze** |
+| Retail-kernel XAM probe | Built; hardware test pending |
 | Xenia smoke test | Pending |
 | DashLaunch boot replacement | Not enabled |
 | Filesystem writes | Not enabled |
