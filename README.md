@@ -5,7 +5,7 @@
 > Current version: **0.2.0-alpha.11**
 > Project revision: **12**
 > Codename: **DatabaseVFS**  
-> Status: **retail-kernel launch/return validated; Xbox-side storage discovery under hardware validation**
+> Status: **Revision 12 host/source checks and diagnostic XEX signing verification passed; fresh Xbox DatabaseVFS acceptance pending; normal persistence disabled**
 
 ## Project goals
 
@@ -27,7 +27,9 @@ The project is starting with the console dashboard first. Network services, pack
 
 ## What revision 12 contains
 
-Revision 10 is the first real milestone-5 persistence build. It adds an Xbox-native SQLite VFS and writes the hardware scanner inventory into a real test database, then closes, reopens, hashes, and integrity-checks that database before reporting PASS/FAIL.
+Revision 12 builds on the accepted Revision 9 scanner pipeline and the Revision 10/11 database work. It includes storage discovery, bounded application/XEX enumeration, metadata parsing, identity fusion and application aggregation; SQLite schema v1 and deterministic identity/record hash contracts; and the Xbox-native SQLite VFS and repository diagnostic. Revision 12 fixes native file ownership, EOF handling and error propagation, with production VFS/repository integration checks through a host file shim.
+
+The database diagnostic writes scanner records transactionally to a dedicated test database, closes and reopens it, verifies schema and record hashes, and checks integrity and foreign keys. Host/source checks and the signed diagnostic build passed; fresh Xbox DatabaseVFS acceptance is still pending. Normal persistent scanner commits remain disabled.
 
 The current 360Dash source includes:
 
@@ -179,7 +181,7 @@ The diagnostic intentionally does **not** collect CPU keys, keyvault contents, c
 
 The first UI mirrors the durable interaction structure of the later Xbox 360 Metro dashboard: horizontal categories, large content tiles, high-contrast focus, and controller-first navigation.
 
-Nebulah Dash does **not** ship Microsoft dashboard artwork, logos, sounds, fonts, or extracted dashboard resources. Revision 1 uses simple original geometry and colors while loading the system font already present on the console.
+Nebulah Dash does **not** ship Microsoft dashboard artwork, logos, sounds, fonts, or extracted dashboard resources. The UI foundation uses simple original geometry and colors while loading the system font already present on the console.
 
 ## Repository layout
 
@@ -233,33 +235,26 @@ Result: Immediate console freeze when launched from Aurora
 
 The source remains in `platform/libxenon/` as an experimental/reference backend only.
 
-### Current test: retail-kernel XAM probe
+### Current test: Revision 12 DatabaseVFS diagnostic
 
-The current hardware probe uses the normal Xbox 360 title execution model. It performs no direct GPU, framebuffer, USB, ATA, or storage-controller initialization.
+The active hardware-validation route is the OS-hosted diagnostic in `platform/diagnostic/`. Retail-kernel launch and return through `XamLoaderLaunchTitle(NULL, 0)` were validated on Trinity/RGH3/kernel 17559; the original XAM smoke probe is historical. This does not establish acceptance of the current database build or the full dashboard UI.
 
-Its complete runtime behavior is intentionally tiny:
+[Evidence commit `45fde37`](https://github.com/Nebulah360/Nebulah-Dash/commit/45fde3713938606b59673ceb1e28196f831b6cc2) records:
 
-1. enter at the XEX title entry point;
-2. call the normal `xam.xex` export `XNotifyQueueUI`;
-3. display `Nebulah Dash retail-kernel test reached entry.`;
-4. call `XamLoaderTerminateTitle` to exit cleanly.
+| Evidence | Revision 12 result |
+| --- | --- |
+| Diagnostic source commit | `f47c4e87ba087fa1c76930fa262e5ad31e1d609a` |
+| Host/source checks | Passed; [source workflow 36212705506](https://github.com/Nebulah360/Nebulah-Dash/actions/runs/36212705506) |
+| Xbox diagnostic build | Passed, including XEX signing verification; [build workflow 36212705490](https://github.com/Nebulah360/Nebulah-Dash/actions/runs/36212705490) |
+| Artifact | `Nebulah-Dash-v0.2.0-alpha.11-rev12-DatabaseVFS` |
+| XEX SHA-256 | `4a86902f83b3d63f02b60ff83c3845cadd86b952d3d77bd96543091ad8438e70` |
+| Downloaded ZIP SHA-256 | `e7b1ab00baf4dbabbcf0838fb406f8524c2b43b02e88d574c752d578a0475c19` |
+| Downloaded XEX hash / embedded source commit | Checked successfully |
+| Fresh Xbox DatabaseVFS acceptance | **Pending** |
 
-Latest CI build:
+Build/signing verification is separate from on-console behavior. Acceptance requires fresh schema creation, transactional scanner-record writes, successful close/reopen, matching compiled/stored schema and record hashes, executable ID checks, `integrity_check=ok`, an empty foreign-key check, and row counts consistent with that scan. A second run must exercise the existing database. Preserve failed databases and journals; never delete them to hide a failure. Normal persistence stays disabled while hardware acceptance and durable storage identity remain unresolved.
 
-```text
-Commit: d0956c160b8f0d66a66089b7c77373b4e9f57860
-Workflow run: 36148964276
-Output: 360Dash-kernel-smoke.xex
-Size:   135,168 bytes
-SHA256: 221df229d09d4c004544a08404170a8dbb3c943464844fac6025e762775922d6
-Image base: 0x82000000
-Entry point: 0x82002000
-Pages: 1 CODE + 1 RWDATA
-Signature check: valid
-Hardware result: pending
-```
-
-A successful test is **notification appears, followed by a clean return/termination without freezing**. Only after that succeeds will dashboard rendering be reintroduced.
+These are private-core development results, not a stable release promotion. Public README synchronization does not publish development binaries or source. Core workflow/evidence links require repository access.
 
 ## Storage and path configuration
 
@@ -309,9 +304,13 @@ See [Xbox-Side Storage Discovery](docs/XBOX_STORAGE_DISCOVERY.md).
 
 ## Build requirements
 
-### Recommended build path: RXDK-360
+### Active hardware-validation build: open-toolchain diagnostic
 
-The primary development path for revision 1 is Team Resurgent's **RXDK-360** integration.
+Revision 12 hardware testing uses `platform/diagnostic/build.sh` with `DEVKITXENON` configured and the pinned SQLite dependency verified by `python3 tools/fetch_sqlite.py`. `.github/workflows/build-discovery-diagnostic-xex.yml` defines XEX packing, signing verification and artifact hashing. Host checks are defined in `.github/workflows/source-check.yml`; they do not replace Xbox hardware acceptance.
+
+### Full dashboard UI build: RXDK-360
+
+The separate full UI project uses Team Resurgent's **RXDK-360** integration. Its render/input foundation is not the current DatabaseVFS hardware test.
 
 Requirements:
 
@@ -355,24 +354,21 @@ From a Visual Studio Developer PowerShell with RXDK-360 installed:
 
 ## Installing on a test console
 
-For the first hardware test, **do not immediately replace your working dashboard path**.
+For Revision 12 acceptance, **do not replace your working dashboard path**.
 
 1. Keep Aurora/FSD/XeXMenu or another known-good recovery route available.
-2. Copy the built 360Dash.xex to a test folder such as:
-   ```text
-   HDD1:\Apps\NebulahDash\
-   ```
-3. Launch it manually.
-4. Confirm video output.
-5. Confirm controller navigation.
-6. Confirm that B returns to the Home tab and the console remains responsive.
-7. Only after repeated successful manual tests should DashLaunch boot-path testing begin.
+2. Obtain the Revision 12 diagnostic from the private-core workflow and verify its embedded source commit and XEX SHA-256 against the recorded build.
+3. Preserve the failed Revision 10 database and journal. Place the diagnostic in a **separate empty test folder** on accessible storage; `USB0:` is only the reference console's testing drive, never a default.
+4. Launch manually from Aurora/XeXMenu and confirm normal dashboard return.
+5. Retrieve `NebulahDebug.txt` beside the launched XEX and retain `NebulahLibraryTest.db` and any journal. `GAME:\` resolves to that launch directory, not a durable storage identity.
+6. Check every DatabaseVFS acceptance condition above and scanner regressions, then rerun in the same folder to test reopening a valid database.
+7. Keep normal persistence and DashLaunch boot replacement disabled. Full UI video/controller acceptance and recovery-tested boot replacement are separate gates.
 
 A dashboard replacement should always retain a safe alternate boot path while under development.
 
 ## Validation matrix
 
-| Area | Revision 1 state |
+| Area | Revision 12 state |
 | --- | --- |
 | Source structure | Complete |
 | RXDK-360 project definition | Complete |
@@ -380,18 +376,23 @@ A dashboard replacement should always retain a safe alternate boot path while un
 | XUI initialization | Implemented |
 | Controller navigation | Implemented |
 | Dashboard shell | Implemented |
-| Hardware boot | Retail-kernel probe pending |
-| RGH test | libxenon path failed; retail-kernel probe pending |
-| JTAG test | Retail-kernel probe pending |
+| Retail-kernel launch / dashboard return | Validated on Trinity/RGH3/kernel 17559 in earlier revisions; fresh Revision 12 execution pending |
+| Scanner pipeline | Revision 9 Trinity acceptance: 57 apps (51 games, 2 dashboards, 4 homebrew); regression fixture retained |
+| SQLite schema / identity and record hashes | Implemented; host/source checks passed |
+| Xbox SQLite VFS / repository | Implemented; host-shim integration passed; Xbox ABI/FATX/durability acceptance pending |
+| Revision 12 diagnostic build / XEX signing verification | Passed; downloaded XEX hash and embedded source commit checked |
+| Fresh DatabaseVFS hardware acceptance | **Pending**, including create/commit/reopen/hash/integrity checks |
+| Normal persistent scanner commits | **Disabled**; hardware acceptance and durable storage identity unresolved |
+| Full UI hardware acceptance / other console configurations, including JTAG | Pending; do not generalize earlier Trinity results |
 | libxenon Aurora launch | **Failed: immediate freeze** |
-| Retail-kernel XAM probe | Built; hardware test pending |
+| Original retail-kernel XAM probe | Historical bring-up test; current test is the Revision 12 diagnostic |
 | Xenia smoke test | Pending |
 | DashLaunch boot replacement | Not enabled |
-| Filesystem writes | Not enabled |
+| Filesystem writes | Diagnostic report and dedicated test DB/journal only; no normal library/configuration writes |
 | Network server | Not enabled |
 | Plugin loading | Not enabled |
 
-Once the first XEX has been tested on hardware, the validation row and changelog should be updated with the console type, kernel, hack type, and observed behavior.
+Record new hardware results against their embedded version, revision and source commit, with console type, kernel, hack type and observed behavior. Host/source passes and signing checks must not be recorded as hardware acceptance.
 
 ## Versioning
 
@@ -400,9 +401,9 @@ Nebulah Dash uses semantic versioning plus a separate project revision.
 Current:
 
 ```text
-Version:  0.1.0-alpha.1
-Revision: 1
-Codename: Foundation
+Version:  0.2.0-alpha.11
+Revision: 12
+Codename: DatabaseVFS
 ```
 
 The semantic version describes feature/API maturity. The revision is a monotonically increasing milestone/build identifier.
@@ -415,18 +416,15 @@ include/nebulah/Version.h
 
 ## Near-term development order
 
-The next major milestones are:
+The immediate sequence is:
 
-1. Hardware validate 360Dash.xex.
-2. Add drive enumeration and logging.
-3. Build the game/homebrew scanner.
-4. Add a persistent title database.
-5. Launch discovered XEX titles.
-6. Add console/system information.
-7. Add file management.
-8. Add safe DashLaunch reading and editing.
-9. Add authenticated FTP/API services.
-10. Add the plugin and package systems.
+1. Run the Revision 12 DatabaseVFS diagnostic in a fresh test folder; preserve the old failed DB/journal and collect the new report/database.
+2. Validate create/commit/close/reopen, schema and record hashes, integrity/foreign keys, scanner counts and a second run. Investigate any native VFS/ABI/FATX failure without discarding evidence.
+3. Resolve durable storage identity and missing-media handling; preserve user favorites/history through rescans.
+4. Only after those gates pass, enable normal persistent scanner commits and complete library-backed launch/UI integration.
+5. Continue console information, file management, safe DashLaunch reading before editing, authenticated FTP/API services, and separately gated plugin/package systems.
+
+Stable public promotion still requires reviewed, hardware-tested milestones and recovery evidence. A README update is documentation only.
 
 See [docs/ROADMAP.md](docs/ROADMAP.md) for the full roadmap.
 
@@ -471,7 +469,7 @@ Reference: https://consolemods.org/wiki/Xbox_360:DashLaunch
 
 ### Team Resurgent RXDK-360
 
-RXDK-360 is the primary toolchain integration targeted by revision 1. It enables Xbox 360 development through Visual Studio 2022/2026 while using the developer's own licensed Xbox 360 XDK.
+RXDK-360 is the toolchain integration for the full dashboard UI project. It enables Xbox 360 development through Visual Studio 2022/2026 while using the developer's own licensed Xbox 360 XDK. The active DatabaseVFS diagnostic uses the separate open-toolchain route described above.
 
 Project: https://github.com/Team-Resurgent/RXDK360
 
@@ -541,6 +539,8 @@ Until Nebulah Dash reaches a recovery-tested milestone:
 - avoid writing NAND;
 - back up launch.ini before testing any future settings writer.
 
+Preserve read-before-write behavior: inspect and validate existing paths/configuration before any explicitly confirmed change. Discovery suggestions remain temporary until confirmed; do not silently rewrite path configuration, DashLaunch or NAND.
+
 ## Project state
 
-Nebulah Dash is currently an early development project. Revision 1 is intended to establish a clean, bootable UI foundation that we can validate before adding high-risk or stateful features.
+Nebulah Dash is at **0.2.0-alpha.11 / Revision 12 / DatabaseVFS** in the private development core. The scanner pipeline, SQLite schema/hash contracts and Xbox-native VFS/repository diagnostic are implemented. Host/source checks and XEX signing verification passed, while fresh Xbox DatabaseVFS acceptance is still pending. Normal persistence remains disabled; recovery, no-proprietary-assets and read-before-write rules remain in force. This documentation update does not promote development code or binaries to the public stable repository.
