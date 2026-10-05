@@ -1,60 +1,56 @@
 # Nebulah Dash
 
-**v0.2.0-alpha.11 · Revision 12 · DatabaseVFS**
+**Development: v0.2.0-alpha.26 · Revision 27 · TitleLauncher**
 
-Open-source Xbox 360 dashboard. Games, homebrew and console tools in one controller-friendly interface.
+Open-source Xbox 360 dashboard. Games, homebrew and console tools in one controller-friendly interface. Nebulah Link is the separate Windows companion.
+
+**Public repository is documentation-only. This status describes private development, not a stable release.**
 
 ## Progress
 
-<!-- nebulah-summary: revision=12; refreshed=2026-10-01; cadence=4 -->
+<!-- nebulah-summary: revision=27; refreshed=2026-10-05; cadence=4 -->
 
-Storage discovery and scanner implemented. XEX metadata identifies and groups applications. SQLite foundation separates titles, locations, executables and user preferences.
-
-Current work: prove database persistence on Xbox hardware.
+Native dashboard displays scanned titles with working controller navigation and default-dashboard return. Database diagnostics have passed a console fresh-create/reopen test. Title launching is implemented but remains under investigation.
 
 ## Built
 
-- Dashboard navigation and placeholder tiles.
-- Storage discovery and bounded scanning.
-- XEX metadata parsing and application grouping.
-- SQLite schema, identity hashes and integrity checks.
-- Xbox-native SQLite VFS and database diagnostic.
-- Explicit fresh-create and read-only reopen test modes.
+- Storage discovery, bounded scanning and XEX application grouping.
+- Games/Apps views, paging, title details and rescan.
+- Deliberate launch confirmation with executable revalidation.
+- SQLite schema, identity hashes, native VFS and diagnostic test modes.
+- Startup and launch-stage logging.
 
 ## Verified
 
-- Host/source checks passed.
-- VFS/repository host tests passed.
-- Diagnostic XEX build and signing verification passed.
-- Artifact hash and embedded source commit checked.
+- Host/source checks and Windows build preflight pass.
+- Native UI build, visible video, controls and dashboard return reported working.
+- Database fresh/reopen console gate passed: 56 apps, 57 locations, 83 executables.
+- DashLaunch launched successfully from the internal HDD in the latest console test.
 
-Evidence: build [957c657](https://github.com/Nebulah360/Nebulah-Dash/commit/957c6574ea14b1c66c287916256ca38540575070), with passing [source checks](https://github.com/Nebulah360/Nebulah-Dash/actions/runs/36943808754) and [XEX build/signing checks](https://github.com/Nebulah360/Nebulah-Dash/actions/runs/36943808768). Development-repository access required.
-
-**Host checks do not prove Xbox compatibility.**
+Host checks do not establish native launch compatibility. Latest UI console reports still need matching build manifests for exact source/artifact provenance.
 
 ## Pending
 
-- Fresh Xbox DatabaseVFS acceptance.
-- Durable storage identity and missing-media handling.
-- Full dashboard UI hardware acceptance.
+- Games can freeze after launch handoff.
+- Aurora is refused by Nebulah's preflight despite launching through XeXMenu.
+- Internal-HDD versus USB game comparison is pending; storage is not a confirmed cause.
+- Durable storage identity and broader failure recovery remain unfinished.
 
-**Normal persistence disabled. Boot replacement disabled. Runtime plugin loading unimplemented.**
+Preflight refusals and returned launch failures retain the UI. Recovery after another title replaces Nebulah is not implemented.
+
+**Normal library persistence disabled. Boot replacement disabled. Runtime plugin loading unimplemented.**
 
 ## Next
 
-1. Use verified build `957c657` in a fresh test folder. Add only `NebulahDatabase.fresh`, then launch manually.
-2. Verify transactions, close/reopen, hashes, integrity, foreign keys and saved scan counts. Confirm dashboard return. Archive the report; retain database and sidecars.
-3. Only after fresh PASS, rename the marker to `NebulahDatabase.reopen`. Relaunch the same XEX in the same folder. Verify read-only reopen and archive the second report.
-
-Existing databases block fresh-create. Sidecars block both modes. Never delete evidence to force a pass. The report is replaced each launch.
+Compare the same game on USB and internal HDD using the same build. Capture startup logs and the matching build manifest. Diagnose Aurora's eligibility refusal separately.
 
 ## Safety
 
-- Launch manually. Keep working dashboard and recovery route.
-- Read before writing. Confirm configuration changes. Back up `launch.ini`.
+- Launch manually; retain a working dashboard and recovery route.
+- Read before writing. Confirm configuration changes.
 - Never silently modify NAND or DashLaunch.
 - Preserve failed databases, sidecars, favorites and history.
-- Discover storage roots. Never assume `USB0:` or treat `GAME:` as durable storage identity.
-- No proprietary SDK files, extracted assets, system fonts, keys or copyrighted game content. Exclude console secrets and account data from diagnostics.
+- Never assume USB0 or treat GAME: as durable storage identity.
+- No proprietary SDK files, extracted assets, console secrets or game content.
 
-**Public repository remains documentation-only until stable promotion is approved.**
+Only reviewed, hardware-tested milestones qualify for public code promotion.
