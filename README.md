@@ -1,55 +1,58 @@
 # Nebulah Dash
 
-**Development: v0.2.0-alpha.26 · Revision 27 · TitleLauncher**
+**Development: v0.2.0-alpha.29 · Revision 30 · RecoverySetup**
 
-Open-source Xbox 360 dashboard. Games, homebrew and console tools in one controller-friendly interface. Nebulah Link is the separate Windows companion.
+Open-source Xbox 360 dashboard for RGH/JTAG consoles. Games, homebrew and console tools in one controller-friendly interface. Nebulah Link remains the separate Windows companion.
 
-**Public repository is documentation-only. This status describes private development, not a stable release.**
+**Public repository: documentation only. Development status below; no stable release announced.**
 
 ## Progress
 
-<!-- nebulah-summary: revision=27; refreshed=2026-10-05; cadence=4 -->
+<!-- nebulah-summary: revision=30; refreshed=2026-10-05; cadence=3 -->
 
-Native dashboard displays scanned titles with working controller navigation and default-dashboard return. Database diagnostics have passed a console fresh-create/reopen test. Title launching is implemented but remains under investigation.
+Native dashboard browses scanned titles. Aurora and COD4 launched and remained usable in earlier console tests. Current development adds scan controls, controlled launch-failure recovery and read-only storage review.
 
-## Built
+## Implemented
 
-- Storage discovery, bounded scanning and XEX application grouping.
-- Games/Apps views, paging, title details and rescan.
-- Deliberate launch confirmation with executable revalidation.
-- SQLite schema, identity hashes, native VFS and diagnostic test modes.
-- Startup and launch-stage logging.
+- Games/Apps views, paging, title details and results appearing during scans.
+- Stop/rescan controls; completed results remain usable after stopping.
+- Explicit XEX launch confirmation, fresh header/size checks and failure reports.
+- Manual retry for permitted failures; stale evidence requires rescan. Cleanup failure locks all launches until Nebulah restarts.
+- Read-only storage review with session-only selection. Existing aliases and volume markers are preserved.
+
+Storage selection does not enroll a drive, change configuration or authorize writes. Scan work runs between frames; individual native I/O calls can still pause the UI.
 
 ## Verified
 
-- Host/source checks and Windows build preflight pass.
-- Native UI build, visible video, controls and dashboard return reported working.
-- Database fresh/reopen console gate passed: 56 apps, 57 locations, 83 executables.
-- DashLaunch launched successfully from the internal HDD in the latest console test.
+- Current source CI passes.
+- Separate database diagnostic XEX build and debug-signature checks pass. This executable contains no dashboard UI.
+- Earlier console tests confirm visible UI, controller navigation and default-dashboard return.
+- Aurora and COD4 launched and remained usable in targeted console tests. Aurora's missing execution-ID metadata is now a warning.
+- Database fresh/reopen and identity-migration tests passed on console, including saved user-state preservation.
 
-Host checks do not establish native launch compatibility. Latest UI console reports still need matching build manifests for exact source/artifact provenance.
+Console results apply to their tested builds. **Revision 30 console acceptance remains pending.** Host checks and diagnostic builds do not prove current native UI or game compatibility.
 
 ## Pending
 
-- Games can freeze after launch handoff.
-- Aurora is refused by Nebulah's preflight despite launching through XeXMenu.
-- Internal-HDD versus USB game comparison is pending; storage is not a confirmed cause.
-- Durable storage identity and broader failure recovery remain unfinished.
+- Current-build browse, stop/rescan, retry and storage-review console acceptance.
+- Durable storage identity, mount revalidation and actual drive enrollment.
+- Normal persistent library writes and saved dashboard settings.
+- Physical power-loss durability and broader native crash recovery.
+- Covers, network metadata and runtime plugin loading.
 
-Preflight refusals and returned launch failures retain the UI. Recovery after another title replaces Nebulah is not implemented.
+**Normal library persistence disabled. Boot replacement disabled. Storage-enrollment writes disabled.**
 
-**Normal library persistence disabled. Boot replacement disabled. Runtime plugin loading unimplemented.**
+Recovery handles refusals or returned launch calls while Nebulah still runs. It cannot recover a replacement title after that title takes over.
 
 ## Next
 
-Compare the same game on USB and internal HDD using the same build. Capture startup logs and the matching build manifest. Diagnose Aurora's eligibility refusal separately.
+Complete current-build console acceptance. Match observations with the build manifest and startup, scan, launch-attempt and storage-review reports. Then resolve mount ownership and revalidation before enabling enrollment.
 
 ## Safety
 
 - Launch manually; retain a working dashboard and recovery route.
-- Read before writing. Confirm configuration changes.
-- Never silently modify NAND or DashLaunch.
-- Preserve failed databases, sidecars, favorites and history.
+- Read before writing. Confirm changes; never silently modify NAND or DashLaunch.
+- Preserve failed databases, sidecars, markers, favorites and history.
 - Never assume USB0 or treat GAME: as durable storage identity.
 - No proprietary SDK files, extracted assets, console secrets or game content.
 
